@@ -1,4 +1,4 @@
-package com.unilopers.cinema.security;
+package com.unilopers.cinema.service;
 
 import com.unilopers.cinema.model.Usuario;
 import com.unilopers.cinema.repository.UsuarioRepository;
