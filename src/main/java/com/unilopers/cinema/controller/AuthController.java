@@ -1,8 +1,12 @@
 package com.unilopers.cinema.controller;
 
+import com.unilopers.cinema.dto.request.CreateUsuarioDTO;
 import com.unilopers.cinema.dto.request.LoginRequestDTO;
 import com.unilopers.cinema.dto.response.AuthResponseDTO;
+import com.unilopers.cinema.dto.response.UsuarioDTO;
+import com.unilopers.cinema.mapper.UsuarioMapper;
 import com.unilopers.cinema.model.Usuario;
+import com.unilopers.cinema.repository.UsuarioRepository;
 import com.unilopers.cinema.security.JwtTokenProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +25,12 @@ public class AuthController {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private UsuarioMapper usuarioMapper;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody LoginRequestDTO loginDTO) {
@@ -45,5 +55,13 @@ public class AuthController {
         } catch (AuthenticationException e) {
             return ResponseEntity.status(401).build();
         }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<UsuarioDTO> register(@RequestBody CreateUsuarioDTO createUsuarioDTO) {
+        Usuario usuario = usuarioMapper.toEntity(createUsuarioDTO);
+        usuario.setRoles("ROLE_USER");
+        Usuario salvo = usuarioRepository.save(usuario);
+        return ResponseEntity.ok(usuarioMapper.toDTO(salvo));
     }
 }
