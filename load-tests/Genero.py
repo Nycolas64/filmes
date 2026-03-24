@@ -1,4 +1,3 @@
-import uuid
 from locust import HttpUser, task, between
 from faker import Faker
 
@@ -9,32 +8,38 @@ class GeneroUser(HttpUser):
 
     def on_start(self):
         self.token = None
-        
-        test_email = f"load_gen_{uuid.uuid4().hex[:6]}@test.com"
-        test_password = "senha_de_teste"
 
-        # Registro e Login
-        self.client.post("/auth/register", json={"nome": "Tester Genero", "email": test_email, "password": test_password})
-        response = self.client.post("/auth/login", json={"email": test_email, "password": test_password})
-        
-        if response.status_code == 200:
-            self.token = response.json().get("token")
-        else:
-            response.failure(f"Login falhou: {response.status_code}")
+        email = f"load_{fake.uuid4()[:8]}@test.com"
+        password = "pass123"
+        headers_xml = {"Content-Type": "application/xml", "Accept": "application/xml"}
+
+        reg_payload = f"<?xml version='1.0' encoding='UTF-8'?><usuario><nome>{fake.name()}</nome><email>{email}</email><password>{password}</password></usuario>"
+        with self.client.post("/auth/register", data=reg_payload, headers=headers_xml, catch_response=True) as resp:
+            if resp.status_code not in [200, 201]:
+                return
+
+        login_json = {"email": email, "password": password}
+        with self.client.post("/auth/login", json=login_json, catch_response=True) as log_resp:
+            if log_resp.status_code == 200:
+                try:
+                    self.token = log_resp.json().get("token")
+                except Exception:
+                    return
+            else:
+                return
 
     @task
-    def fluxo_genero(self):
-        if not self.token: return
-        headers = {"Authorization": f"Bearer {self.token}"}
+    def ciclo_completo_genero(self):
+        if not self.token:
+            return
 
-        # POST - Criar Genero
-        payload = {"nome": f"Gênero_{fake.word()}_{uuid.uuid4().hex[:4]}"}
-        with self.client.post("/generos", json=payload, headers=headers, catch_response=True) as post_res:
-            if post_res.status_code in [200, 201]:
-                genero_id = post_res.json().get("id")
-                if genero_id:
-                    # GET - Ler Genero criado
-                    self.client.get(f"/generos/{genero_id}", headers=headers, name="GET /generos/[id]")
-                post_res.success()
+        headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/xml", "Accept": "application/xml"}
+
+        xml = f"<?xml version='1.0' encoding='UTF-8'?><genero><nome>Genero_{fake.uuid4()[:8]}</nome></genero>"
+        with self.client.post("/generos", data=xml, headers=headers, catch_response=True, name="POST /generos") as response:
+            if response.status_code == 201:
+                location = response.headers.get("Location")
+                if location:
+                    self.client.get(location, headers=headers, name="GET /generos/[id]")
             else:
-                post_res.failure(f"Erro POST /generos: {post_res.status_code}")
+                response.failure(f"Erro POST: {response.status_code}")
